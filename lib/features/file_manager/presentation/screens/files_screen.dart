@@ -37,6 +37,7 @@ class FilesScreen extends StatelessWidget {
                   ? _buildEmptyState(context)
                   : _buildFileList(context, files),
           floatingActionButton: FloatingActionButton(
+            heroTag: 'files_add_fab',
             onPressed: () => context.read<FileManagerBloc>().add(const PickFileEvent()),
             child: const Icon(Icons.add),
           ),

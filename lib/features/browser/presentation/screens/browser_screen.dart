@@ -148,6 +148,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
             ),
           ),
           floatingActionButton: FloatingActionButton.extended(
+            heroTag: 'browser_summarize_fab',
             onPressed: _toggleSummaryPanel,
             icon: Icon(_showSummaryPanel ? Icons.close : Icons.auto_awesome),
             label: Text(_showSummaryPanel ? 'Close' : 'Summarize'),

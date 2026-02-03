@@ -56,6 +56,7 @@ class TabsScreen extends StatelessWidget {
                   },
                 ),
           floatingActionButton: FloatingActionButton(
+            heroTag: 'tabs_add_fab',
             onPressed: () {
               context.read<BrowserBloc>().add(const CreateTabEvent());
             },

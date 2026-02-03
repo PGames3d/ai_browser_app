@@ -1,67 +1,72 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/browser_providers.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/browser_bloc.dart';
+import '../bloc/browser_state.dart';
+import '../bloc/browser_event.dart';
 import '../../domain/entities/browser_tab.dart';
 
-class TabsScreen extends ConsumerWidget {
+class TabsScreen extends StatelessWidget {
   const TabsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tabs = ref.watch(browserTabsProvider);
-    final tabsNotifier = ref.watch(browserTabsProvider.notifier);
+  Widget build(BuildContext context) {
+    return BlocBuilder<BrowserBloc, BrowserState>(
+      builder: (context, state) {
+        final tabs = state.tabs;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tabs'),
-        actions: [
-          TextButton.icon(
-            onPressed: tabs.isEmpty
-                ? null
-                : () {
-                    _showCloseAllTabsDialog(context, ref);
-                  },
-            icon: const Icon(Icons.close_fullscreen),
-            label: const Text('Close All'),
-          ),
-        ],
-      ),
-      body: tabs.isEmpty
-          ? _buildEmptyState(context, ref)
-          : GridView.builder(
-              padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.75,
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Tabs'),
+            actions: [
+              TextButton.icon(
+                onPressed: tabs.isEmpty
+                    ? null
+                    : () {
+                        _showCloseAllTabsDialog(context);
+                      },
+                icon: const Icon(Icons.close_fullscreen),
+                label: const Text('Close All'),
               ),
-              itemCount: tabs.length,
-              itemBuilder: (context, index) {
-                final tab = tabs[index];
-                return _TabCard(
-                  tab: tab,
-                  isActive: index == tabsNotifier.activeTabIndex,
-                  onTap: () {
-                    ref.read(browserTabsProvider.notifier).switchTab(index);
-                    Navigator.pop(context);
+            ],
+          ),
+          body: tabs.isEmpty
+              ? _buildEmptyState(context)
+              : GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.75,
+                  ),
+                  itemCount: tabs.length,
+                  itemBuilder: (context, index) {
+                    final tab = tabs[index];
+                    return _TabCard(
+                      tab: tab,
+                      isActive: index == state.activeTabIndex,
+                      onTap: () {
+                        context.read<BrowserBloc>().add(SwitchTabEvent(index));
+                        Navigator.pop(context);
+                      },
+                      onClose: () {
+                        context.read<BrowserBloc>().add(CloseTabEvent(tab.id));
+                      },
+                    );
                   },
-                  onClose: () {
-                    ref.read(browserTabsProvider.notifier).closeTab(tab.id);
-                  },
-                );
-              },
-            ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ref.read(browserTabsProvider.notifier).createTab();
-        },
-        child: const Icon(Icons.add),
-      ),
+                ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              context.read<BrowserBloc>().add(const CreateTabEvent());
+            },
+            child: const Icon(Icons.add),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -88,21 +93,21 @@ class TabsScreen extends ConsumerWidget {
     );
   }
 
-  void _showCloseAllTabsDialog(BuildContext context, WidgetRef ref) {
+  void _showCloseAllTabsDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Close All Tabs'),
         content: const Text('Are you sure you want to close all tabs?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
-              ref.read(browserTabsProvider.notifier).closeAllTabs();
-              Navigator.pop(context);
+              context.read<BrowserBloc>().add(const CloseAllTabsEvent());
+              Navigator.pop(dialogContext);
             },
             child: const Text('Close All'),
           ),

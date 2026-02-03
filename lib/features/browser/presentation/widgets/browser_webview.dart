@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../providers/browser_providers.dart';
-import '../../domain/entities/history_item.dart';
+import '../bloc/browser_bloc.dart';
+import '../bloc/browser_event.dart';
 import 'package:uuid/uuid.dart';
 
-// Provider to store WebView controllers by tab ID
-final webViewControllerProvider =
-    StateProvider.family<InAppWebViewController?, String>((ref, tabId) => null);
-
-class BrowserWebView extends ConsumerStatefulWidget {
+class BrowserWebView extends StatefulWidget {
   final String tabId;
   final String initialUrl;
   final Function(InAppWebViewController)? onControllerReady;
@@ -24,10 +20,10 @@ class BrowserWebView extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<BrowserWebView> createState() => BrowserWebViewState();
+  State<BrowserWebView> createState() => BrowserWebViewState();
 }
 
-class BrowserWebViewState extends ConsumerState<BrowserWebView> {
+class BrowserWebViewState extends State<BrowserWebView> {
   InAppWebViewController? _controller;
   bool _isLoading = true;
   bool _hasError = false;
@@ -161,8 +157,10 @@ class BrowserWebViewState extends ConsumerState<BrowserWebView> {
           ),
           onWebViewCreated: (controller) {
             _controller = controller;
-            ref.read(webViewControllerProvider(widget.tabId).notifier).state =
-                controller;
+            context.read<BrowserBloc>().add(SetWebViewControllerEvent(
+                  tabId: widget.tabId,
+                  controller: controller,
+                ));
             widget.onControllerReady?.call(controller);
           },
           onLoadStart: (controller, url) {
@@ -172,17 +170,17 @@ class BrowserWebViewState extends ConsumerState<BrowserWebView> {
               _errorMessage = null;
             });
 
-            ref.read(browserTabsProvider.notifier).updateTab(
-                  widget.tabId,
+            context.read<BrowserBloc>().add(UpdateTabEvent(
+                  id: widget.tabId,
                   url: url.toString(),
                   progress: 0.1,
-                );
+                ));
           },
           onProgressChanged: (controller, progress) {
-            ref.read(browserTabsProvider.notifier).updateTab(
-                  widget.tabId,
+            context.read<BrowserBloc>().add(UpdateTabEvent(
+                  id: widget.tabId,
                   progress: progress / 100,
-                );
+                ));
           },
           onLoadStop: (controller, url) async {
             setState(() {
@@ -193,32 +191,31 @@ class BrowserWebViewState extends ConsumerState<BrowserWebView> {
             final canGoBack = await controller.canGoBack();
             final canGoForward = await controller.canGoForward();
 
-            ref.read(browserTabsProvider.notifier).updateTab(
-                  widget.tabId,
+            if (!mounted) return;
+
+            context.read<BrowserBloc>().add(UpdateTabEvent(
+                  id: widget.tabId,
                   url: url.toString(),
                   title: title ?? url.toString(),
                   progress: 1.0,
                   canGoBack: canGoBack,
                   canGoForward: canGoForward,
-                );
+                ));
 
             // Add to history
             if (url != null) {
-              ref.read(historyProvider.notifier).addToHistory(
-                    HistoryItem(
-                      id: const Uuid().v4(),
-                      url: url.toString(),
-                      title: title ?? url.toString(),
-                      visitedAt: DateTime.now(),
-                    ),
-                  );
+              context.read<BrowserBloc>().add(AddToHistoryEvent(
+                    id: const Uuid().v4(),
+                    url: url.toString(),
+                    title: title ?? url.toString(),
+                  ));
             }
           },
           onTitleChanged: (controller, title) {
-            ref.read(browserTabsProvider.notifier).updateTab(
-                  widget.tabId,
+            context.read<BrowserBloc>().add(UpdateTabEvent(
+                  id: widget.tabId,
                   title: title ?? 'Untitled',
-                );
+                ));
           },
           onReceivedError: (controller, request, error) {
             setState(() {

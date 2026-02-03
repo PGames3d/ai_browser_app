@@ -1,4 +1,6 @@
-class Summary {
+import 'package:equatable/equatable.dart';
+
+class Summary extends Equatable {
   final String id;
   final String originalText;
   final String summarizedText;
@@ -20,6 +22,19 @@ class Summary {
     this.fileId,
     this.translations,
   });
+
+  @override
+  List<Object?> get props => [
+        id,
+        originalText,
+        summarizedText,
+        originalWordCount,
+        summarizedWordCount,
+        createdAt,
+        sourceUrl,
+        fileId,
+        translations,
+      ];
 
   Summary copyWith({
     String? id,

@@ -1,4 +1,6 @@
-class Translation {
+import 'package:equatable/equatable.dart';
+
+class Translation extends Equatable {
   final String id;
   final String originalText;
   final String translatedText;
@@ -14,6 +16,16 @@ class Translation {
     required this.targetLanguage,
     required this.createdAt,
   });
+
+  @override
+  List<Object?> get props => [
+        id,
+        originalText,
+        translatedText,
+        sourceLanguage,
+        targetLanguage,
+        createdAt,
+      ];
 
   Translation copyWith({
     String? id,

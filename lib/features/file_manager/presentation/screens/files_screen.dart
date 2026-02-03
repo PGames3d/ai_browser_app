@@ -1,41 +1,47 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import '../providers/file_manager_providers.dart';
+import '../bloc/file_manager_bloc.dart';
+import '../bloc/file_manager_state.dart';
+import '../bloc/file_manager_event.dart';
 import '../../domain/entities/file_item.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 
-class FilesScreen extends ConsumerWidget {
+class FilesScreen extends StatelessWidget {
   const FilesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final files = ref.watch(fileManagerProvider);
-    final isLoading = ref.watch(isLoadingFilesProvider);
+  Widget build(BuildContext context) {
+    return BlocBuilder<FileManagerBloc, FileManagerState>(
+      builder: (context, state) {
+        final files = state.files;
+        final isLoading = state.isLoading;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Files'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              // Refresh files
-            },
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('My Files'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () {
+                  context.read<FileManagerBloc>().add(const LoadFilesEvent());
+                },
+              ),
+            ],
           ),
-        ],
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : files.isEmpty
-              ? _buildEmptyState(context)
-              : _buildFileList(context, ref, files),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _pickFile(ref),
-        child: const Icon(Icons.add),
-      ),
+          body: isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : files.isEmpty
+                  ? _buildEmptyState(context)
+                  : _buildFileList(context, files),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => context.read<FileManagerBloc>().add(const PickFileEvent()),
+            child: const Icon(Icons.add),
+          ),
+        );
+      },
     );
   }
 
@@ -67,8 +73,7 @@ class FilesScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFileList(
-      BuildContext context, WidgetRef ref, List<FileItem> files) {
+  Widget _buildFileList(BuildContext context, List<FileItem> files) {
     return ListView.builder(
       padding: const EdgeInsets.all(8),
       itemCount: files.length,
@@ -79,14 +84,14 @@ class FilesScreen extends ConsumerWidget {
             motion: const ScrollMotion(),
             children: [
               SlidableAction(
-                onPressed: (context) => _summarizeFile(ref, file),
+                onPressed: (ctx) => _summarizeFile(context, file),
                 backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
                 icon: Icons.auto_awesome,
                 label: 'Summarize',
               ),
               SlidableAction(
-                onPressed: (context) => _deleteFile(ref, file),
+                onPressed: (ctx) => _deleteFile(context, file),
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
                 icon: Icons.delete,
@@ -109,7 +114,7 @@ class FilesScreen extends ConsumerWidget {
               trailing: file.isSummarized == true
                   ? const Icon(Icons.check_circle, color: Colors.green)
                   : null,
-              onTap: () => _openFile(context, ref, file),
+              onTap: () => _openFile(context, file),
             ),
           ),
         );
@@ -165,26 +170,8 @@ class FilesScreen extends ConsumerWidget {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
-  void _pickFile(WidgetRef ref) async {
-    ref.read(isLoadingFilesProvider.notifier).state = true;
-
-    final repository = ref.read(fileManagerRepositoryProvider);
-    final result = await repository.pickFile();
-
-    result.fold(
-      (failure) {
-        // Handle error
-      },
-      (file) {
-        ref.read(fileManagerProvider.notifier).addFile(file);
-      },
-    );
-
-    ref.read(isLoadingFilesProvider.notifier).state = false;
-  }
-
-  void _openFile(BuildContext context, WidgetRef ref, FileItem file) async {
-    ref.read(selectedFileProvider.notifier).state = file;
+  void _openFile(BuildContext context, FileItem file) async {
+    context.read<FileManagerBloc>().add(SelectFileEvent(file));
 
     if (file.path.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -253,14 +240,12 @@ class FilesScreen extends ConsumerWidget {
     );
   }
 
-  void _summarizeFile(WidgetRef ref, FileItem file) {
+  void _summarizeFile(BuildContext context, FileItem file) {
     // Navigate to summary screen or trigger summarization
-    ref.read(selectedFileProvider.notifier).state = file;
+    context.read<FileManagerBloc>().add(SelectFileEvent(file));
   }
 
-  void _deleteFile(WidgetRef ref, FileItem file) {
-    ref.read(fileManagerProvider.notifier).removeFile(file.id);
-    final repository = ref.read(fileManagerRepositoryProvider);
-    repository.deleteFile(file.id);
+  void _deleteFile(BuildContext context, FileItem file) {
+    context.read<FileManagerBloc>().add(RemoveFileEvent(file.id));
   }
 }

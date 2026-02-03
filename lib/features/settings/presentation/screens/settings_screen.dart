@@ -1,187 +1,160 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/settings_bloc.dart';
+import '../bloc/settings_state.dart';
+import '../bloc/settings_event.dart';
 
-// Theme Mode Provider
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
-  return ThemeModeNotifier();
-});
-
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.system) {
-    _loadTheme();
-  }
-
-  static const String _themeKey = 'theme_mode';
-
-  Future<void> _loadTheme() async {
-    final prefs = await SharedPreferences.getInstance();
-    final themeIndex = prefs.getInt(_themeKey) ?? 0;
-    state = ThemeMode.values[themeIndex];
-  }
-
-  Future<void> setTheme(ThemeMode mode) async {
-    state = mode;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_themeKey, mode.index);
-  }
-
-  void toggleTheme() {
-    if (state == ThemeMode.dark) {
-      setTheme(ThemeMode.light);
-    } else {
-      setTheme(ThemeMode.dark);
-    }
-  }
-}
-
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
+  Widget build(BuildContext context) {
+    return BlocBuilder<SettingsBloc, SettingsState>(
+      builder: (context, state) {
+        final themeMode = state.themeMode;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
-      body: ListView(
-        children: [
-          // Appearance Section
-          _SectionHeader(title: 'Appearance'),
-          ListTile(
-            leading: Icon(
-              themeMode == ThemeMode.dark
-                  ? Icons.dark_mode
-                  : themeMode == ThemeMode.light
-                      ? Icons.light_mode
-                      : Icons.brightness_auto,
-            ),
-            title: const Text('Theme'),
-            subtitle: Text(
-              themeMode == ThemeMode.dark
-                  ? 'Dark'
-                  : themeMode == ThemeMode.light
-                      ? 'Light'
-                      : 'System',
-            ),
-            trailing: SegmentedButton<ThemeMode>(
-              segments: const [
-                ButtonSegment(
-                  value: ThemeMode.light,
-                  icon: Icon(Icons.light_mode),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Settings'),
+          ),
+          body: ListView(
+            children: [
+              // Appearance Section
+              _SectionHeader(title: 'Appearance'),
+              ListTile(
+                leading: Icon(
+                  themeMode == ThemeMode.dark
+                      ? Icons.dark_mode
+                      : themeMode == ThemeMode.light
+                          ? Icons.light_mode
+                          : Icons.brightness_auto,
                 ),
-                ButtonSegment(
-                  value: ThemeMode.system,
-                  icon: Icon(Icons.brightness_auto),
+                title: const Text('Theme'),
+                subtitle: Text(
+                  themeMode == ThemeMode.dark
+                      ? 'Dark'
+                      : themeMode == ThemeMode.light
+                          ? 'Light'
+                          : 'System',
                 ),
-                ButtonSegment(
-                  value: ThemeMode.dark,
-                  icon: Icon(Icons.dark_mode),
+                trailing: SegmentedButton<ThemeMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: Icon(Icons.light_mode),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      icon: Icon(Icons.brightness_auto),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: Icon(Icons.dark_mode),
+                    ),
+                  ],
+                  selected: {themeMode},
+                  onSelectionChanged: (selection) {
+                    context.read<SettingsBloc>().add(SetThemeEvent(selection.first));
+                  },
                 ),
-              ],
-              selected: {themeMode},
-              onSelectionChanged: (selection) {
-                ref.read(themeModeProvider.notifier).setTheme(selection.first);
-              },
-            ),
-          ),
+              ),
 
-          const Divider(),
+              const Divider(),
 
-          // Browser Section
-          _SectionHeader(title: 'Browser'),
-          ListTile(
-            leading: const Icon(Icons.home),
-            title: const Text('Home Page'),
-            subtitle: const Text('https://www.google.com'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              _showEditHomePageDialog(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.search),
-            title: const Text('Search Engine'),
-            subtitle: const Text('Google'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              _showSearchEngineDialog(context);
-            },
-          ),
+              // Browser Section
+              _SectionHeader(title: 'Browser'),
+              ListTile(
+                leading: const Icon(Icons.home),
+                title: const Text('Home Page'),
+                subtitle: const Text('https://www.google.com'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  _showEditHomePageDialog(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.search),
+                title: const Text('Search Engine'),
+                subtitle: const Text('Google'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  _showSearchEngineDialog(context);
+                },
+              ),
 
-          const Divider(),
+              const Divider(),
 
-          // Storage Section
-          _SectionHeader(title: 'Storage & Data'),
-          ListTile(
-            leading: const Icon(Icons.delete_outline),
-            title: const Text('Clear Browsing History'),
-            onTap: () {
-              _showClearHistoryDialog(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.cached),
-            title: const Text('Clear Cache'),
-            subtitle: const Text('Free up storage space'),
-            onTap: () {
-              _showClearCacheDialog(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.file_download),
-            title: const Text('Downloads Location'),
-            subtitle: const Text('Internal storage/Downloads'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
-          ),
+              // Storage Section
+              _SectionHeader(title: 'Storage & Data'),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Clear Browsing History'),
+                onTap: () {
+                  _showClearHistoryDialog(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.cached),
+                title: const Text('Clear Cache'),
+                subtitle: const Text('Free up storage space'),
+                onTap: () {
+                  _showClearCacheDialog(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_download),
+                title: const Text('Downloads Location'),
+                subtitle: const Text('Internal storage/Downloads'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {},
+              ),
 
-          const Divider(),
+              const Divider(),
 
-          // AI Features Section
-          _SectionHeader(title: 'AI Features'),
-          SwitchListTile(
-            secondary: const Icon(Icons.auto_awesome),
-            title: const Text('Auto-Summarize'),
-            subtitle: const Text('Automatically summarize long pages'),
-            value: false,
-            onChanged: (value) {},
-          ),
-          ListTile(
-            leading: const Icon(Icons.translate),
-            title: const Text('Default Translation Language'),
-            subtitle: const Text('Spanish'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
-          ),
+              // AI Features Section
+              _SectionHeader(title: 'AI Features'),
+              SwitchListTile(
+                secondary: const Icon(Icons.auto_awesome),
+                title: const Text('Auto-Summarize'),
+                subtitle: const Text('Automatically summarize long pages'),
+                value: false,
+                onChanged: (value) {},
+              ),
+              ListTile(
+                leading: const Icon(Icons.translate),
+                title: const Text('Default Translation Language'),
+                subtitle: const Text('Spanish'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {},
+              ),
 
-          const Divider(),
+              const Divider(),
 
-          // About Section
-          _SectionHeader(title: 'About'),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('Version'),
-            subtitle: const Text('1.0.0'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.code),
-            title: const Text('Open Source Licenses'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              showLicensePage(
-                context: context,
-                applicationName: 'AI Browser',
-                applicationVersion: '1.0.0',
-              );
-            },
-          ),
+              // About Section
+              _SectionHeader(title: 'About'),
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('Version'),
+                subtitle: const Text('1.0.0'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.code),
+                title: const Text('Open Source Licenses'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  showLicensePage(
+                    context: context,
+                    applicationName: 'AI Browser',
+                    applicationVersion: '1.0.0',
+                  );
+                },
+              ),
 
-          const SizedBox(height: 32),
-        ],
-      ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        );
+      },
     );
   }
 
